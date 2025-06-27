@@ -10,9 +10,14 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, email TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS urls (user TEXT, url TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS logs (user TEXT, url TEXT, status INTEGER, timestamp TEXT)")
+        # Add email column if missing
+        try:
+            c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        except:
+            pass
         conn.commit()
 
 def add_user(username, password):
@@ -51,3 +56,13 @@ def get_all_users():
     with get_conn() as conn:
         rows = conn.execute("SELECT username FROM users").fetchall()
         return [r[0] for r in rows]
+
+def save_email_for_user(username, email):
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET email=? WHERE username=?", (email, username))
+        conn.commit()
+
+def get_email_for_user(username):
+    with get_conn() as conn:
+        row = conn.execute("SELECT email FROM users WHERE username=?", (username,)).fetchone()
+        return row[0] if row and row[0] else ""
