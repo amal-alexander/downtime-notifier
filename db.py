@@ -10,7 +10,6 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         c = conn.cursor()
-        # Create users table with email
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY,
@@ -18,15 +17,13 @@ def init_db():
                 email TEXT
             )
         """)
-        # Create URLs table with per-URL interval
         c.execute("""
             CREATE TABLE IF NOT EXISTS urls (
                 user TEXT,
                 url TEXT,
-                interval TEXT
+                interval TEXT DEFAULT '5min'
             )
         """)
-        # Create logs table
         c.execute("""
             CREATE TABLE IF NOT EXISTS logs (
                 user TEXT,
@@ -35,9 +32,16 @@ def init_db():
                 timestamp TEXT
             )
         """)
+
+        # ✅ Ensure 'interval' column exists
+        try:
+            c.execute("ALTER TABLE urls ADD COLUMN interval TEXT DEFAULT '5min'")
+        except sqlite3.OperationalError:
+            pass  # Column exists, ignore
+
         conn.commit()
 
-# User management
+# ✅ User management
 def add_user(username, password):
     with get_conn() as conn:
         conn.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)", (username, password))
@@ -63,24 +67,28 @@ def get_all_users():
         rows = conn.execute("SELECT username FROM users").fetchall()
         return [r[0] for r in rows]
 
-# URL management
-def add_url(user, url, interval):
+# ✅ URL Management
+def add_url(user, url, interval='5min'):
     with get_conn() as conn:
         conn.execute("INSERT INTO urls (user, url, interval) VALUES (?, ?, ?)", (user, url, interval))
         conn.commit()
 
-def delete_url(user, url):
+def update_url_interval(user, url, interval):
     with get_conn() as conn:
-        conn.execute("DELETE FROM urls WHERE user=? AND url=?", (user, url))
-        conn.execute("DELETE FROM logs WHERE user=? AND url=?", (user, url))
+        conn.execute("UPDATE urls SET interval=? WHERE user=? AND url=?", (interval, user, url))
         conn.commit()
+
+def get_urls_by_user(user):
+    with get_conn() as conn:
+        rows = conn.execute("SELECT url FROM urls WHERE user=?", (user,)).fetchall()
+        return [r[0] for r in rows]
 
 def get_urls_by_user_with_intervals(user):
     with get_conn() as conn:
         rows = conn.execute("SELECT url, interval FROM urls WHERE user=?", (user,)).fetchall()
         return rows
 
-# Logs
+# ✅ Logs
 def log_uptime(user, url, status):
     with get_conn() as conn:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
