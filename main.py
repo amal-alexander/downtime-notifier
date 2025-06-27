@@ -1,6 +1,9 @@
 import streamlit as st
 from auth import check_login
-from db import init_db, add_url, get_urls_by_user, get_logs_by_user, save_email_for_user, get_email_for_user
+from db import (
+    init_db, add_url, get_urls_by_user, get_logs_by_user,
+    save_email_for_user, get_email_for_user, clear_logs_for_user_url
+)
 from scheduler import start_scheduler
 import pandas as pd
 from datetime import datetime, timedelta
@@ -51,12 +54,12 @@ if not urls:
 
 selected_url = st.selectbox("Choose a URL to view its logs:", urls)
 
-# ⏱️ Time Filter Dropdown (NEW)
+# ⏱️ Time Filter
 time_filter = st.selectbox("Select time range to view logs:", [
     "Last 5 minutes", "Last 1 hour", "Last 24 hours", "All"
 ])
 
-# 📊 Load Logs
+# 📊 Logs
 logs = get_logs_by_user(user)
 filtered_logs = [log for log in logs if log[0] == selected_url]
 
@@ -75,7 +78,13 @@ if filtered_logs:
     elif time_filter == "Last 24 hours":
         df = df[df["Timestamp"] >= now - timedelta(hours=24)]
 
-    # Show Logs
+    # 🗑️ Clear Logs
+    if st.button("🗑️ Clear All Logs for This URL"):
+        clear_logs_for_user_url(user, selected_url)
+        st.success("✅ Logs cleared!")
+        st.rerun()
+
+    # 📈 Show Logs
     st.subheader(f"📈 Log History for: {selected_url}")
     for _, row in df.sort_values(by="Timestamp", ascending=False).iterrows():
         color = "green" if row["Status"] else "red"
@@ -83,13 +92,6 @@ if filtered_logs:
             f"- <span style='color:{color}'>{row['Emoji']}</span> `{row['Readable']}` — {row['URL']}",
             unsafe_allow_html=True
         )
-        # 🗑️ Clear Logs Button
-if st.button("🗑️ Clear All Logs for This URL"):
-    from db import clear_logs_for_user_url
-    clear_logs_for_user_url(user, selected_url)
-    st.success("✅ Logs cleared!")
-    st.rerun()
-
 
     # 📥 Download CSV
     csv = df[["URL", "Status", "Timestamp"]].to_csv(index=False).encode('utf-8')
