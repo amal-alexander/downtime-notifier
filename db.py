@@ -10,11 +10,36 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, email TEXT)")
-        c.execute("CREATE TABLE IF NOT EXISTS urls (user TEXT, url TEXT, interval TEXT)")
-        c.execute("CREATE TABLE IF NOT EXISTS logs (user TEXT, url TEXT, status INTEGER, timestamp TEXT)")
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT,
+                email TEXT
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS urls (
+                user TEXT,
+                url TEXT,
+                interval TEXT
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                user TEXT,
+                url TEXT,
+                status INTEGER,
+                timestamp TEXT
+            )
+        """)
+        # Try patching in case old DB is missing interval
+        try:
+            c.execute("ALTER TABLE urls ADD COLUMN interval TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         conn.commit()
 
+# User Management
 def add_user(username, password):
     with get_conn() as conn:
         conn.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)", (username, password))
@@ -40,6 +65,7 @@ def get_all_users():
         rows = conn.execute("SELECT username FROM users").fetchall()
         return [r[0] for r in rows]
 
+# URL + Interval
 def add_url(user, url, interval):
     with get_conn() as conn:
         conn.execute("INSERT INTO urls (user, url, interval) VALUES (?, ?, ?)", (user, url, interval))
@@ -55,6 +81,7 @@ def get_urls_by_user_with_intervals(user):
         rows = conn.execute("SELECT url, interval FROM urls WHERE user=?", (user,)).fetchall()
         return rows
 
+# Logs
 def log_uptime(user, url, status):
     with get_conn() as conn:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -67,6 +94,7 @@ def get_logs_by_user(user):
         rows = conn.execute("SELECT url, status, timestamp FROM logs WHERE user=?", (user,)).fetchall()
         return rows
 
+# Reset All
 def reset_user_data(user):
     with get_conn() as conn:
         conn.execute("DELETE FROM urls WHERE user=?", (user,))
