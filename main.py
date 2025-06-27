@@ -3,7 +3,7 @@ from auth import check_login
 from db import (
     init_db, add_url, update_url_interval,
     get_urls_by_user_with_intervals, get_logs_by_user,
-    save_email_for_user, get_email_for_user
+    save_email_for_user, get_email_for_user, reset_user_data
 )
 from scheduler import start_scheduler
 import pandas as pd
@@ -76,7 +76,6 @@ if filtered_logs:
     df["Readable"] = df["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
     df["Emoji"] = df["Status"].apply(lambda s: "✅" if s else "❌")
 
-    # ⏳ Apply Time Filter
     now = datetime.now()
     if time_filter == "Last 5 minutes":
         df = df[df["Timestamp"] >= now - timedelta(minutes=5)]
@@ -92,15 +91,21 @@ if filtered_logs:
             unsafe_allow_html=True
         )
 
-    # 📉 Downtime Chart
     df["Downtime"] = (~df["Status"].astype(bool)).astype(int)
     df["Timestamp"] = df["Timestamp"].dt.floor("min")
     st.subheader("📉 Downtime Trend (1 = Down, 0 = Up)")
     st.line_chart(df.set_index("Timestamp")[["Downtime"]])
 
-    # 📥 Download CSV
     csv = df[["URL", "Status", "Timestamp"]].to_csv(index=False).encode('utf-8')
     st.download_button("📥 Download Logs as CSV", data=csv, file_name=f"{selected_url.replace('/', '_')}_uptime.csv")
 
 else:
     st.info("No logs yet for this URL.")
+
+# 🧼 Reset All Data
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚠️ Danger Zone")
+if st.sidebar.button("❌ Reset All My Data"):
+    reset_user_data(user)
+    st.sidebar.success("✅ All your URLs and logs have been deleted.")
+    st.rerun()
