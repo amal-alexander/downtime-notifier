@@ -1,3 +1,5 @@
 streamlit
+pandas
+apscheduler
 requests
-APScheduler
+plotly
