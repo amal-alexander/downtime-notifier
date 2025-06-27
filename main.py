@@ -2,7 +2,7 @@ import streamlit as st
 from auth import check_login
 from db import (
     init_db, add_url, get_urls_by_user, get_logs_by_user,
-    save_email_for_user, get_email_for_user, clear_logs_for_user_url
+    save_email_for_user, get_email_for_user
 )
 from scheduler import start_scheduler
 import pandas as pd
@@ -77,12 +77,6 @@ if filtered_logs:
         df = df[df["Timestamp"] >= now - timedelta(hours=1)]
     elif time_filter == "Last 24 hours":
         df = df[df["Timestamp"] >= now - timedelta(hours=24)]
-
-    # 🗑️ Clear Logs
-    if st.button("🗑️ Clear All Logs for This URL"):
-        clear_logs_for_user_url(user, selected_url)
-        st.success("✅ Logs cleared!")
-        st.rerun()
 
     # 📈 Show Logs
     st.subheader(f"📈 Log History for: {selected_url}")
