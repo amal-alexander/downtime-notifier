@@ -83,6 +83,13 @@ if filtered_logs:
             f"- <span style='color:{color}'>{row['Emoji']}</span> `{row['Readable']}` — {row['URL']}",
             unsafe_allow_html=True
         )
+        # 🗑️ Clear Logs Button
+if st.button("🗑️ Clear All Logs for This URL"):
+    from db import clear_logs_for_user_url
+    clear_logs_for_user_url(user, selected_url)
+    st.success("✅ Logs cleared!")
+    st.rerun()
+
 
     # 📥 Download CSV
     csv = df[["URL", "Status", "Timestamp"]].to_csv(index=False).encode('utf-8')
