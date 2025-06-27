@@ -7,6 +7,7 @@ from db import (
 from scheduler import start_scheduler
 import pandas as pd
 from datetime import datetime, timedelta
+import plotly.express as px
 
 MAX_URLS = 20
 
@@ -53,6 +54,46 @@ if not urls:
     st.stop()
 
 selected_url = st.selectbox("Choose a URL to view its logs:", urls)
+
+# 📊 Overview Box
+st.subheader("📊 Monitoring Overview")
+all_logs = get_logs_by_user(user)
+total_urls = len(urls)
+total_logs = len(all_logs)
+total_downs = sum(1 for log in all_logs if log[1] == 0)
+
+# Calculate uptime % for last 24 hrs
+now = datetime.now()
+last_24h_logs = [log for log in all_logs if pd.to_datetime(log[2]) >= now - timedelta(hours=24)]
+if last_24h_logs:
+    ups = sum(1 for log in last_24h_logs if log[1] == 1)
+    uptime_percent = round(100 * ups / len(last_24h_logs), 2)
+    uptime_pie = {"Up": ups, "Down": len(last_24h_logs) - ups}
+else:
+    uptime_percent = 100.0
+    uptime_pie = {"Up": 1, "Down": 0}
+
+# Find latest downtime
+downtime_logs = [log for log in all_logs if log[1] == 0]
+last_downtime = max(downtime_logs, key=lambda x: x[2])[2] if downtime_logs else "N/A"
+last_downtime_url = max(downtime_logs, key=lambda x: x[2])[0] if downtime_logs else "N/A"
+
+# Display Metrics
+st.markdown(f"""
+- **Total Monitored URLs:** `{total_urls}`
+- **Total Downtime Events:** `{total_downs}`
+- **Uptime (Last 24h):** `{uptime_percent}%`
+- **Last Downtime:** `{last_downtime}` ({last_downtime_url})
+""")
+
+# Uptime Pie Chart
+fig = px.pie(
+    names=list(uptime_pie.keys()),
+    values=list(uptime_pie.values()),
+    title="Uptime vs Downtime (Last 24 Hours)",
+    color_discrete_sequence=["green", "red"]
+)
+st.plotly_chart(fig, use_container_width=True)
 
 # ⏱️ Time Filter
 time_filter = st.selectbox("Select time range to view logs:", [
