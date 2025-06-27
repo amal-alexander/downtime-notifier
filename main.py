@@ -5,6 +5,8 @@ from scheduler import start_scheduler
 import pandas as pd
 from datetime import datetime, timedelta
 
+MAX_URLS = 20
+
 st.set_page_config("🔔 Downtime Notifier Dashboard", layout="centered")
 init_db()
 start_scheduler()
@@ -17,8 +19,8 @@ if not user:
 st.sidebar.success(f"Logged in as: {user}")
 st.title("🌐 Downtime Notifier Dashboard")
 
-# 📧 Email notifier setup
-st.sidebar.subheader("📩 Email Alerts")
+# 📩 Email Notifications
+st.sidebar.subheader("📧 Email Alerts")
 current_email = get_email_for_user(user)
 new_email = st.sidebar.text_input("Enter your email to receive alerts", value=current_email or "")
 if st.sidebar.button("Update Email"):
@@ -26,15 +28,19 @@ if st.sidebar.button("Update Email"):
         save_email_for_user(user, new_email)
         st.sidebar.success("✅ Email updated!")
 
-# ➕ Add new URL
-st.subheader("Add URL to Monitor")
-new_url = st.text_input("Enter a URL to monitor (e.g., https://example.com)")
-if st.button("Add URL"):
-    if new_url:
-        add_url(user, new_url)
-        st.success(f"✅ {new_url} added for monitoring")
+# 🌐 Add New URL
+st.subheader("Add a New URL to Monitor")
+urls = get_urls_by_user(user)
+if len(urls) >= MAX_URLS:
+    st.warning(f"🚫 You’ve reached the limit of {MAX_URLS} URLs.")
+else:
+    new_url = st.text_input("Enter a URL (e.g., https://example.com)")
+    if st.button("Add URL"):
+        if new_url:
+            add_url(user, new_url)
+            st.success(f"✅ {new_url} added for monitoring")
 
-# 🔗 Show user URLs with dropdown
+# 🔗 Select from Existing URLs
 st.subheader("Your Monitored URLs")
 urls = get_urls_by_user(user)
 
@@ -42,9 +48,9 @@ if not urls:
     st.info("No URLs added yet.")
     st.stop()
 
-selected_url = st.selectbox("Select a URL to view its uptime history:", urls)
+selected_url = st.selectbox("Select a URL to view logs:", urls)
 
-# 📊 Uptime History Section
+# 📊 Logs and Chart
 st.subheader(f"📈 Uptime History for {selected_url}")
 logs = get_logs_by_user(user)
 filtered_logs = [log for log in logs if log[0] == selected_url]
@@ -55,16 +61,16 @@ if filtered_logs:
     df["Readable"] = df["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
     df["Emoji"] = df["Status"].apply(lambda s: "✅" if s else "❌")
 
-    # ⏱️ Time range filter
-    filter_range = st.selectbox("Filter logs by time range:", ["All", "Last 10 minutes", "Last 1 hour", "Last 24 hours"])
-    if filter_range == "Last 10 minutes":
+    # ⏱️ Time Filter
+    time_filter = st.selectbox("Filter logs by time range:", ["All", "Last 10 minutes", "Last 1 hour", "Last 24 hours"])
+    if time_filter == "Last 10 minutes":
         df = df[df["Timestamp"] >= (datetime.now() - timedelta(minutes=10))]
-    elif filter_range == "Last 1 hour":
+    elif time_filter == "Last 1 hour":
         df = df[df["Timestamp"] >= (datetime.now() - timedelta(hours=1))]
-    elif filter_range == "Last 24 hours":
+    elif time_filter == "Last 24 hours":
         df = df[df["Timestamp"] >= (datetime.now() - timedelta(hours=24))]
 
-    # Display logs
+    # Display Logs
     for _, row in df.sort_values(by="Timestamp", ascending=False).iterrows():
         color = "green" if row["Status"] else "red"
         st.markdown(
@@ -72,14 +78,14 @@ if filtered_logs:
             unsafe_allow_html=True
         )
 
-    # 📥 CSV Download
+    # 📥 CSV Export
     csv = df[["URL", "Status", "Timestamp"]].to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Download Log as CSV", data=csv, file_name=f"{selected_url.replace('https://', '').replace('/', '_')}_uptime.csv", mime="text/csv")
+    st.download_button("📥 Download CSV", data=csv, file_name=f"{selected_url.replace('https://', '').replace('/', '_')}_uptime.csv", mime="text/csv")
 
-    # 📈 Chart
-    df["Uptime"] = df["Status"].astype(int)
+    # 📉 Downtime Chart
+    df["Downtime"] = (~df["Status"].astype(bool)).astype(int)
     df["Timestamp"] = df["Timestamp"].dt.floor("min")
-    st.subheader("📊 Uptime Over Time (1 = Up, 0 = Down)")
-    st.line_chart(df.set_index("Timestamp")[["Uptime"]])
+    st.subheader("📉 Downtime Trend (1 = Down, 0 = Up)")
+    st.line_chart(df.set_index("Timestamp")[["Downtime"]])
 else:
-    st.info("No uptime history available for this URL yet.")
+    st.info("No logs available for this URL yet.")
